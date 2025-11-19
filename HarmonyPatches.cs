@@ -1,75 +1,46 @@
 ﻿using ExitGames.Client.Photon;
 using HarmonyLib;
+using Photon.Pun;
 using Photon.Realtime;
 
-namespace PropertiesManager
+namespace PropertiesManager;
+public class HarmonyPatches
 {
-    public class HarmonyPatches
+    static Harmony instance;
+    static bool isPatched = false;
+    public static bool IsPatched
     {
-        private static Harmony instance;
-
-        public static bool IsPatched { get; private set; }
-        public const string InstanceId = "com.uhclash.gorillatag.propsmanager";
-
-        public static void ApplyHarmonyPatches()
+        get => isPatched;
+        set
         {
-            if (!IsPatched)
-            {
-                if (instance == null)
-                {
-                    instance = new Harmony(InstanceId);
-                }
+            if (IsPatched == value || (instance == null && !value)) return;
+            isPatched = value;
 
-                instance.PatchAll(typeof(HarmonyPatches).Assembly);
-                IsPatched = true;
+            if (value)
+            {
+                instance ??= Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, "com.uhclash.gorillatag.propsmanager");
+                return;
+            }
+
+            instance.UnpatchSelf();
+            instance = null;
+        }
+    }
+    public static void ApplyHarmonyPatches() => IsPatched = true;
+    public static void RemoveHarmonyPatches() => IsPatched = false;
+    [HarmonyPatch(typeof(LoadBalancingClient), "OpSetPropertiesOfActor", MethodType.Setter), HarmonyPrefix]
+    public static bool PropertyPatch(int actorNr, Hashtable actorProperties)
+    {
+        if (!Plugin.NukeEnabled || actorNr != PhotonNetwork.LocalPlayer.ActorNumber) return true;
+
+        foreach (var prop in actorProperties)
+        {
+            if (prop.Key is not string str || str != "didTutorial")
+            {
+                return prop.Key is byte;
             }
         }
 
-        public static void RemoveHarmonyPatches()
-        {
-            if (instance != null && IsPatched)
-            {
-                instance.UnpatchSelf();
-                IsPatched = false;
-            }
-        }
-
-        [HarmonyPatch(typeof(Player), "CustomProperties", MethodType.Setter)]
-        internal class PropSetterPatch
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(ref Hashtable value)
-            {
-                if (!Plugin.NukeEnabled)
-                    return true;
-                
-                foreach (var prop in value)
-                {
-                    if ((string)prop.Key != "didTutorial")
-                        return false;
-                }
-                
-                return true;
-            }
-        }
-
-        [HarmonyPatch(typeof(Player), "SetCustomProperties", MethodType.Normal)]
-        internal class SetPropPatch
-        {
-            [HarmonyPrefix]
-            public static bool Prefix(ref Hashtable propertiesToSet)
-            {
-                if (!Plugin.NukeEnabled)
-                    return true;
-                
-                foreach (var prop in propertiesToSet)
-                {
-                    if ((string)prop.Key != "didTutorial")
-                        return false;
-                }
-                
-                return true;
-            }
-        }
+        return true;
     }
 }
