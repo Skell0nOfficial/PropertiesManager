@@ -2,6 +2,7 @@
 using HarmonyLib;
 using Photon.Pun;
 using Photon.Realtime;
+using UnityEngine;
 
 namespace PropertiesManager;
 public class HarmonyPatches
@@ -28,19 +29,11 @@ public class HarmonyPatches
     }
     public static void ApplyHarmonyPatches() => IsPatched = true;
     public static void RemoveHarmonyPatches() => IsPatched = false;
-    [HarmonyPatch(typeof(LoadBalancingClient), "OpSetPropertiesOfActor", MethodType.Setter), HarmonyPrefix]
-    public static bool PropertyPatch(int actorNr, Hashtable actorProperties)
+    [HarmonyPatch(typeof(LoadBalancingClient), "OpSetPropertiesOfActor", MethodType.Setter), HarmonyPrefix, HarmonyPriority(100)]
+    public static void PropertyPatch(int actorNr, ref Hashtable actorProperties)
     {
-        if (!Plugin.NukeEnabled || actorNr != PhotonNetwork.LocalPlayer.ActorNumber) return true;
+        if (!Plugin.NukeEnabled || actorNr != PhotonNetwork.LocalPlayer.ActorNumber) return;
 
-        foreach (var prop in actorProperties)
-        {
-            if (prop.Key is not string str || str != "didTutorial")
-            {
-                return prop.Key is byte;
-            }
-        }
-
-        return true;
+        actorProperties = new() { ["didTutorial"] = PlayerPrefs.GetString("didTutorial", "nope") == "done" };
     }
 }
