@@ -2,7 +2,6 @@
 using BepInEx.Configuration;
 using ComputerInterface.Behaviours;
 using ComputerInterface.Interfaces;
-using ExitGames.Client.Photon;
 using Photon.Pun;
 using System.Linq;
 
@@ -10,7 +9,7 @@ namespace PropertiesManager
 {
     [BepInPlugin("com.uhclash.gorillatag.propsmanager", "PropertiesManager", "1.0.0")]
     [BepInDependency("tonimacaroni.computerinterface", "1.8.0")]
-    public class Plugin : BaseUnityPlugin
+    public class Plugin : BaseUnityPlugin, ICommandRegistrar
     {
         static ConfigEntry<bool> NukeConfig;
         static readonly ConfigDefinition NukeSetting = new("Property Nuker", "Enabled");
@@ -20,7 +19,12 @@ namespace PropertiesManager
             set => NukeConfig.Value = value;
         }
         void Awake() => NukeConfig = Config.Bind(NukeSetting, false, new ConfigDescription($"Should PropertiesManager disable properties all together?"));
-        void Start()
+        void ICommandRegistrar.Initialize()
+        {
+            (this as ICommandRegistrar).RegisterCommands();
+            Logger.LogMessage($"Initialized PropertiesManager V{Info.Metadata.Version}");
+        }
+        void ICommandRegistrar.RegisterCommands()
         {
             var commandHandler = CommandHandler.Singleton;
 
@@ -31,27 +35,16 @@ namespace PropertiesManager
 
             commandHandler.AddCommand(new Command("clearprops", null, args =>
             {
-                var props = PhotonNetwork.LocalPlayer.CustomProperties;
-                if (props.Count == 0) return "You have no properties to clear!";
-
-                var propsToRemove = new Hashtable();
-                foreach (var key in props.Keys)
-                {
-                    if (key is not string str || str != "didTutorial")
-                    {
-                        propsToRemove[key] = null;
-                    }
-                }
-
-                PhotonNetwork.LocalPlayer.SetCustomProperties(propsToRemove);
-                return $"Cleared {props.Count} total props!";
+                PhotonNetwork.SetPlayerCustomProperties(null);
+                NetworkSystem.Instance.SetMyTutorialComplete();
+                return "Cleared props!";
             }));
 
             commandHandler.AddCommand(new Command("propnuke", [typeof(bool)], args =>
             {
                 if (args.Length == 0 || args[0] is not bool enabled) return "An unexpected error occured.";
 
-                Plugin.NukeEnabled = enabled;
+                NukeEnabled = enabled;
                 return enabled ? "The property nuke has been activated!" : "The property nuke has been disabled!";
             }));
         }

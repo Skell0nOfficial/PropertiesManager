@@ -1,8 +1,6 @@
 ﻿using ExitGames.Client.Photon;
 using HarmonyLib;
-using Photon.Pun;
 using Photon.Realtime;
-using UnityEngine;
 
 namespace PropertiesManager;
 public class HarmonyPatches
@@ -32,8 +30,8 @@ public class HarmonyPatches
     [HarmonyPatch(typeof(LoadBalancingClient), "OpSetPropertiesOfActor", MethodType.Setter), HarmonyPrefix, HarmonyPriority(100)]
     public static void PropertyPatch(int actorNr, ref Hashtable actorProperties)
     {
-        if (!Plugin.NukeEnabled || actorNr != PhotonNetwork.LocalPlayer.ActorNumber) return;
+        if (!Plugin.NukeEnabled || actorNr != NetworkSystem.Instance.LocalPlayerID) return;
 
-        actorProperties = new() { ["didTutorial"] = PlayerPrefs.GetString("didTutorial", "nope") == "done" };
+        actorProperties = new() { ["didTutorial"] = NetworkSystem.Instance.GetMyTutorialCompletion() };
     }
 }
